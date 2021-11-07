@@ -2,6 +2,7 @@
 type MapFunction<R, T> = (value: T, index: number) => R;
 type ReduceFunction<R, V> = (agg: R, value: V, index: number) => R;
 type ComparatorFunction<T> = (a: T, b: T) => number;
+type Row = {[k: string]: any};
 
 /**
  * Repeat the value n times.
@@ -33,7 +34,8 @@ export class Series<T> {
     this.owner = owner;
   }
 
-  private assertUnowned(operation: string): void {
+  /** @internal */
+  public assertUnowned(operation: string): void {
     if (this.owner !== undefined) {
       throw new Error("individual operation \"" + operation +
                       "\" cannot be performed for a Series attached to a DataFrame");
@@ -258,7 +260,7 @@ export class Series<T> {
 export class DataFrame {
   private data: {[k: string]: Series<any>};
 
-  public constructor(rows?: any[][] | {[k: string]: any}[], columnNames?: string[]) {
+  public constructor(rows?: any[][] | Row[], columnNames?: string[]) {
     const fixedColumnNames = columnNames !== undefined;
     let series: Series<any>[] = [];
 
@@ -309,6 +311,16 @@ export class DataFrame {
   }
 
   /**
+   * Returns the number of rows in the dataframe.
+   */
+  public size(): number {
+    if (this.data === {}) {
+      return 0;
+    }
+    return Object.values(this.data)[0].size();
+  }
+
+  /**
    * Return the column names present in the dataframe.
    */
   public columnNames(): string[] {
@@ -318,16 +330,41 @@ export class DataFrame {
   /**
    * Retrieve a column from the dataframe as a series.
    */
-  public col(name: string): Series<any> {
+  public column(name: string): Series<any> {
     this.checkColumn(name);
     return this.data[name];
   }
 
   /**
+   * Replace a column by name.
+   */
+   public setColumn(name: string, series: Series<any>): void {
+    series.assertUnowned("DataFrame.setColumn");
+    this.checkColumn(name);
+    if (series.size() != this.size()) {
+      throw new Error("incoming Series size (" + series.size() +
+                      ") differs from DataFrame size (" + this.size() + ")");
+    }
+    const old = this.data[name];
+    old.name = undefined;
+    old.owner = undefined;
+    series.name = name;
+    series.owner = this;
+    this.data[name] = series;
+  }
+
+  /**
    * Retrieve a row from this dataframe as an object.
    */
-  public row(index: number): {[k: string]: any} {
+  public row(index: number): Row {
     return Object.values(this.data).reduce((a, s) => ({...a, [s.name]: s.get(index)}), {});
+  }
+
+  /**
+   * Set a row in the dataframe.
+   */
+  public setRow(index: number, row: Row) {
+    Object.values(this.data).forEach(s => s.set(index, row[s.name]));
   }
 
 }
