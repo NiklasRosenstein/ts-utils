@@ -165,7 +165,7 @@ export class Series<T> {
   public indexOf(arg: T | MapFunction<boolean, T>, start?: number, stop?: number): number {
     if (typeof arg === 'function') {
       stop = Math.min(stop || this.data.length, this.data.length);
-      for (let i = this.wrapIndex(start); i < this.wrapIndex(stop); ++i) {
+      for (let i = this.wrapIndex(start || 0); i < this.wrapIndex(stop); ++i) {
         if ((arg as MapFunction<boolean, T>)(this.data[i], i)) {
           return i;
         }
@@ -180,7 +180,7 @@ export class Series<T> {
    */
   public forEach(func: MapFunction<void, T>, start?: number, stop?: number): void {
     stop = Math.min(stop || this.data.length, this.data.length);
-    for (let i = this.wrapIndex(start); i < this.wrapIndex(stop); ++i) {
+    for (let i = this.wrapIndex(start || 0); i < this.wrapIndex(stop); ++i) {
       func(this.data[i], i);
     }
   }
@@ -263,6 +263,7 @@ export class DataFrame {
   public constructor(rows?: any[][] | Row[], columnNames?: string[]) {
     const fixedColumnNames = columnNames !== undefined;
     let series: Series<any>[] = [];
+    rows = rows || [];
 
     for (let i = 0; i < rows.length; ++i) {
       let row = rows[i];
@@ -272,7 +273,7 @@ export class DataFrame {
           columnNames = Object.keys(row);
         }
         else if (!fixedColumnNames) {
-          columnNames = [...columnNames, ...Object.keys(row).filter(k => !columnNames.includes(k))];
+          columnNames = [...columnNames, ...Object.keys(row).filter(k => !columnNames!.includes(k))];
         }
         row = columnNames.map(k => row[k]);
       }
@@ -289,7 +290,7 @@ export class DataFrame {
       }
 
       // Append the current row to the series'.
-      row.map((v, i) => series[i].append(v));
+      row.map((v: any, i: number) => series[i].append(v));
     }
 
     if (columnNames === undefined) {
@@ -298,7 +299,7 @@ export class DataFrame {
 
     this.data = {};
     series.map((s, i) => {
-      s.name = columnNames[i];
+      s.name = columnNames![i];
       s.owner = this;
       this.data[s.name] = s;
     });
@@ -357,14 +358,14 @@ export class DataFrame {
    * Retrieve a row from this dataframe as an object.
    */
   public row(index: number): Row {
-    return Object.values(this.data).reduce((a, s) => ({...a, [s.name]: s.get(index)}), {});
+    return Object.values(this.data).reduce((a, s) => ({...a, [s.name!]: s.get(index)}), {});
   }
 
   /**
    * Set a row in the dataframe.
    */
   public setRow(index: number, row: Row) {
-    Object.values(this.data).forEach(s => s.set(index, row[s.name]));
+    Object.values(this.data).forEach(s => s.set(index, row[s.name!]));
   }
 
 }
