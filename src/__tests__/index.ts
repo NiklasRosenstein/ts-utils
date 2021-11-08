@@ -22,4 +22,12 @@ test('create dataframe', () => {
   expect(df.row(0)).toStrictEqual({a: 4, b: 5, c: "bar", d: undefined});
   expect(df.row(1)).toStrictEqual({a: 1, b: 2, c: "spam", d: undefined});
   expect(df.row(2)).toStrictEqual({a: undefined, b: 7, c: "eggs", d: 42});
+
+  expect(df.toString()).toBe(
+    "a b c    d\n" +
+    "- - ---- --\n" +
+    "4 5 bar  ?\n" +
+    "1 2 spam ?\n" +
+    "? 7 eggs 42\n"
+  )
 })

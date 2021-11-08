@@ -42,6 +42,12 @@ export class Series<T> {
     }
   }
 
+  private assertNotEmpty(): void {
+    if (this.data === []) {
+      throw new Error("series is empty");
+    }
+  }
+
   private wrapIndex(index: number): number {
     if (index < 0) {
       return this.data.length + index;
@@ -114,7 +120,7 @@ export class Series<T> {
    * Filter the series by a predicate and returns a copy.
    */
   public filter(predicate: MapFunction<boolean, T>): Series<T> {
-    return new Series(this.data.filter(predicate));
+    return new Series(this.data.filter(predicate), this.name);
   }
 
   /**
@@ -189,21 +195,57 @@ export class Series<T> {
    * Create a copy of the series with the mapped values.
    */
   public map<R>(func: MapFunction<R, T>): Series<R> {
-    return new Series(this.data.map(func));
+    return new Series(this.data.map(func), this.name);
   }
 
   /**
    * Create a new series flat-mapped from the function.
    */
   public flatMap<R>(func: MapFunction<R[], T>): Series<R> {
-    return new Series(this.data.flatMap(func));
+    return new Series(this.data.flatMap(func), this.name);
   }
 
   /**
    * Reduce values in the series.
    */
-   public reduce<R>(func: ReduceFunction<R, T>, initial: R): R {
+  public reduce<R>(func: ReduceFunction<R, T>, initial: R): R {
     return this.data.reduce(func, initial);
+  }
+
+  /**
+   * Convert the series to a standard array.
+   */
+  public toArray(): T[] {
+    return [...this.data];
+  }
+
+  /**
+   * Calculates the minimum value of all elements in the series. If no comparator is given,
+   * the series must contain numbers. Throws an error if the series is empty.
+   */
+  public min(func?: ComparatorFunction<T>): T {
+    if (func === undefined) {
+      return (this as unknown as Series<number>).max((a, b) => b - a) as unknown as T;
+    }
+    return this.max((a, b) => func(b, a));
+  }
+
+  /**
+   * Calculate the maximum value of all elements in the series. If no comparator is given,
+   * the series must contain numbers. Throws an error if the series is empty.
+   */
+  public max(func?: ComparatorFunction<T>): T {
+    this.assertNotEmpty();
+    if (func === undefined) {
+      return (this as unknown as Series<number>).max((a, b) => a - b) as unknown as T;
+    }
+    let current = this.data[0];
+    for (let i = 1; i < this.data.length; ++i) {
+      if (func(current, this.data[i]) < 0) {
+        current = this.data[i];
+      }
+    }
+    return current;
   }
 
   /**
@@ -366,6 +408,37 @@ export class DataFrame {
    */
   public setRow(index: number, row: Row) {
     Object.values(this.data).forEach(s => s.set(index, row[s.name!]));
+  }
+
+  /**
+   * Return a string formatting the dataframe as a table.
+   */
+  public toString(): string {
+    // Convert all series to strings, replacing `undefined` with "?".
+    const series = Object.values(this.data).map(s => s.map(x => '' + (x === undefined ? '?' : x)));
+
+    // Get the widths of each column.
+    const widths = series.map(s => Math.max(
+      s.name!.length,
+      s.max((a, b) => a.length - b.length).length
+    ));
+
+    // Construct the output string.
+    const parts: string[] = [];
+    series.forEach((s, i) => parts.push(s.name!.padEnd(widths[i]) + ' '));
+    parts[parts.length - 1] = parts[parts.length - 1].trim();
+    parts.push('\n');
+    series.forEach((_, i) => parts.push('-'.repeat(widths[i]) + ' '));
+    parts[parts.length - 1] = parts[parts.length - 1].trim();
+    parts.push('\n');
+
+    for (let rowIdx = 0; rowIdx < series[0].size(); ++rowIdx) {
+      series.forEach((s, i) => parts.push(s.get(rowIdx).padEnd(widths[i]) + ' '));
+      parts[parts.length - 1] = parts[parts.length - 1].trim();
+      parts.push('\n');
+    }
+
+    return parts.join('');
   }
 
 }

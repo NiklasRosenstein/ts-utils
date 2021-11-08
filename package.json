@@ -15,9 +15,9 @@
     "typescript": "^4.4.4"
   },
   "scripts": {
-    "build": "rm -r ./dist && tsc && cp readme.md ./dist && ( cat package.json | grep -v \"npm publish\" > ./dist/package.json )",
+    "build": "rm -rf ./dist && tsc && mkdir -p ./dist && cp readme.md ./dist && ( cat package.json | grep -v \"npm publish\" > ./dist/package.json )",
     "publish": "npm run build && cd ./dist && npm publish",
-    "test": "jest"
+    "test": "jest ./src"
   },
   "repository": {
     "type": "git",
