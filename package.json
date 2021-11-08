@@ -16,7 +16,7 @@
   },
   "scripts": {
     "test": "jest",
-    "build": "rm -r ./dist && tsc && cp package.json ./dist"
+    "build": "rm -r ./dist && tsc && cp package.json readme.md ./dist"
   },
   "repository": {
     "type": "git",
