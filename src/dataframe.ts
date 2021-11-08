@@ -550,9 +550,23 @@ export class DataFrame {
   }
 
   /**
+   * Map dataframe rows.
+   */
+  public map<R>(func: MapFunction<R, Row>): R[] {
+    return Object.values(this.data)[0].data.map((_, i) => func(this.row(i), i));
+  }
+
+  /**
+   * Flatmap dataframe rows.
+   */
+  public flatMap<R>(func: MapFunction<R, Row>): R[] {
+    return Object.values(this.data)[0].data.flatMap((_, i) => func(this.row(i), i));
+  }
+
+  /**
    * Execute a function for each row index.
    */
-  public forEachRowIdx(func: ((i: number, df: DataFrame) => any)): DataFrame {
+  public forEach(func: ((i: number, df: DataFrame) => any)): DataFrame {
     Object.values(this.data)[0].forEach((_, i) => func(i, this));
     return this;
   }
