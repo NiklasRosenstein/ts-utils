@@ -41,4 +41,16 @@ test('create dataframe', () => {
   );
   expect(df.toString() == sortedDf.toString()).toBe(false);
 
+  const aggDf = df.partition('d').agg(df => ({
+    sum: df.column("a").sum(),
+    max: df.column("c").max((a, b) => a.length - b.length),
+  }));
+
+  expect(aggDf.toString()).toBe(
+    "d  sum max\n" +
+    "-- --- ----\n" +
+    "42 0   eggs\n" +
+    "?  5   spam\n"
+  );
+
 })

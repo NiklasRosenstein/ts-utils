@@ -4,7 +4,6 @@ declare module 'multiple-array-sorter' {
     sortProp: string | undefined,
     sortOrder?: 'asc' | 'desc',
   }
-
   declare interface MoveMapResult<T> {
     moveMap: MoveMap,
     sortedMasterArray: T[]

@@ -5,6 +5,8 @@ type MapFunction<R, T> = (value: T, index: number) => R;
 type ReduceFunction<R, V> = (agg: R, value: V, index: number) => R;
 type ComparatorFunction<T> = (a: T, b: T) => number;
 type Row = {[k: string]: any};
+type SeriesMap = {[k: string]: Series<any>};
+type SeriesOrValueMap = {[k: string]: Series<any> | any};
 
 interface SortProps {
   inplace?: boolean,
@@ -307,12 +309,32 @@ export class Series<T> {
  * Represents tabular data.
  */
 export class DataFrame {
-  private data: {[k: string]: Series<any>};
+  private data: SeriesMap = {};
 
-  public constructor(rows?: any[][] | Row[], columnNames?: string[]) {
+  public constructor(data?: any[][] | Row[] | SeriesMap, columnNames?: string[]) {
+    if (Array.isArray(data)) {
+      this.fromArray(data, columnNames);
+    }
+    else if (data !== undefined) {
+      let size: number | undefined = undefined;
+      Object.entries(data).forEach(entry => {
+        if (size === undefined) size = entry[1].size();
+        if (size != entry[1].size()) {
+          throw new Error("mismatching series size");
+        }
+      });
+      Object.entries(data).forEach(entry => {
+        entry[1].assertUnowned("DataFrame()");
+        entry[1].name = entry[0];
+        entry[1].owner = this;
+      });
+      this.data = data;
+    }
+  }
+
+  private fromArray(rows: any[][] | Row[], columnNames?: string[]): void {
     const fixedColumnNames = columnNames !== undefined;
     let series: Series<any>[] = [];
-    rows = rows || [];
 
     for (let i = 0; i < rows.length; ++i) {
       let row = rows[i];
@@ -324,7 +346,7 @@ export class DataFrame {
         else if (!fixedColumnNames) {
           columnNames = [...columnNames, ...Object.keys(row).filter(k => !columnNames!.includes(k))];
         }
-        row = columnNames.map(k => row[k]);
+        row = columnNames.map(k => (row as Row)[k]);
       }
 
       // Make sure we have enough series to hold the values of this row.
@@ -431,7 +453,30 @@ export class DataFrame {
    * Create a copy of the dataframe.
    */
   public copy(): DataFrame {
-    return new DataFrame(Object.values(this.data)[0].data.map((_, rowIdx) => this.row(rowIdx)));
+    return this.slice(0, this.size());
+  }
+
+  /**
+   * Slice the rows of the dataframe in the given range.
+   */
+  public slice(start: number, stop: number): DataFrame {
+    const rows = Object.values(this.data)[0].data
+      .map((_, rowIdx) => rowIdx)
+      .slice(start, stop)
+      .map(rowIdx => this.row(rowIdx));
+    return new DataFrame(rows);
+  }
+
+  /**
+   * Union this and the other dataframe. The resulting dataframe is wider if the columns of
+   * the dataframes don't match up.
+   */
+  public union(other: DataFrame): DataFrame {
+    const rows = [
+      ...Object.values(this.data)[0].data.map((_, rowIdx) => this.row(rowIdx)),
+      ...Object.values(other.data)[0].data.map((_, rowIdx) => other.row(rowIdx))
+    ];
+    return new DataFrame(rows);
   }
 
   /**
@@ -439,12 +484,42 @@ export class DataFrame {
    */
   public sortBy(column: string | Series<any>, sortProps?: SortProps): DataFrame {
     const self = (sortProps?.inplace || false) ? this : this.copy();
-    column = this.resolveColumn(column);
+    column = self.resolveColumn(column);
     const moveMap = mas.getMoveMap(
       column.data,
       {sortProp: undefined, sortOrder: sortProps?.sortOrder || 'asc'});
     Object.values(self.data).forEach(s => s.data = mas.sortArrayBasedOnMoveMap(s.data, moveMap.moveMap));
+    column.data = moveMap.sortedMasterArray;
     return self;
+  }
+
+  /**
+   * Partition on the specified series or series name. This will construct groups of dataframes
+   * of only the rows where the series contains the same value and subsequently invoke the
+   * processor function for each group. The column on which the partition is performed must be
+   * sortable.
+   */
+  public partition(
+    column_: string | Series<any>,
+    inplaceSort: boolean = false,
+  ): DataFramePartition<any> {
+    let column = this.resolveColumn(column_);
+    if (!inplaceSort) {
+      column = column.copy();
+    }
+    const self = this.sortBy(column, {inplace: inplaceSort});
+    const result = new DataFramePartition<any>(column.name);
+
+    let startRowIdx = 0;
+    const rowCount = this.size();
+    for (let i = 1; i <= rowCount; ++i) {
+      if (i == rowCount || column.get(startRowIdx) !== column.get(i)) {
+        result.add(column.get(startRowIdx), self.slice(startRowIdx, i));
+        startRowIdx = i;
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -477,5 +552,42 @@ export class DataFrame {
 
     return parts.join('');
   }
+
+}
+
+/**
+ * Represents a partition of dataframes.
+ */
+export class DataFramePartition<T> {
+  public partitions: {key: T, df: DataFrame}[];
+
+  public constructor(private name?: string) { this.partitions = []; }
+
+  public add(key: T, partition: DataFrame): void {
+    this.partitions.push({key: key, df: partition});
+  }
+
+  public agg(processGroup: ((df: DataFrame) => DataFrame | SeriesOrValueMap)): DataFrame {
+    const toDF = (currentValue: any, data: DataFrame | SeriesOrValueMap) => {
+      if (data instanceof DataFrame) {
+        data.setColumn(this.name || '_key', new Series<any>(repeat(currentValue, data.size())));
+        return data;
+      }
+      let count: number | undefined = undefined;
+      const entries = Object.entries(data).map(entry => {
+        if (!(entry[1] instanceof Series)) {
+          entry[1] = new Series<any>([entry[1]]);
+        }
+        if (count === undefined) {
+          count = entry[1].size();
+        }
+        return entry;
+      });
+      entries.splice(0, 0, [this.name || '_key', new Series<any>(repeat(currentValue, count || 1))]);
+      return new DataFrame(Object.fromEntries(entries));
+    };
+    return this.partitions.map(item => toDF(item.key, processGroup(item.df))).reduce((agg, df) => agg.union(df));
+  }
+
 
 }
