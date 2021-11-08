@@ -18,6 +18,8 @@ test('create dataframe', () => {
   expect(df.column("a").sum()).toBe(5);
   expect(df.column("b").sum()).toBe(14);
   expect(df.column("d").sum()).toBe(42);
+  expect(df.column("a").cumulativeSum().toArray()).toStrictEqual([4, 5, 5]);
+  expect(df.column("b").cumulativeSum().toArray()).toStrictEqual([5, 7, 14]);
 
   expect(df.row(0)).toStrictEqual({a: 4, b: 5, c: "bar", d: undefined});
   expect(df.row(1)).toStrictEqual({a: 1, b: 2, c: "spam", d: undefined});

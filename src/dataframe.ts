@@ -77,9 +77,10 @@ export class Series<T> {
    *
    * This cannot be called when the series is attached to a {@link DataFrame}.
    */
-  public append(...values: T[]): void {
+  public append(...values: T[]): Series<T> {
     this.assertUnowned("append");
     this.data.push(...values);
+    return this;
   }
 
   /**
@@ -262,6 +263,16 @@ export class Series<T> {
    */
   public sum(): number {
     return (this as unknown as Series<number>).reduce((agg, v) => agg + (v || 0.0), 0.0);
+  }
+
+  /**
+   * Calculate the cumulative sum of all elements. The series must contain numbers.
+   */
+  public cumulativeSum(): Series<number> {
+    return (this as unknown as Series<number>).reduce(
+      (s, v) => s.append((s.size() === 0 ? 0 : s.get(-1)) + (v || 0)),
+      new Series<number>()
+    );
   }
 
   /**
