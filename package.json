@@ -19,7 +19,7 @@
   },
   "scripts": {
     "test": "jest",
-    "build": "tsc -p tsconfig-cjs.json && tsc -p tsconfig-esm.json"
+    "build": "rm -r ./dist && tsc && cp package.json ./dist"
   },
   "repository": {
     "type": "git",
