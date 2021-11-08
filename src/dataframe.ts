@@ -461,6 +461,14 @@ export class DataFrame {
   }
 
   /**
+   * Remove a row from the dataframe.
+   */
+  public removeRow(rowIdx: number): DataFrame {
+    Object.values(this.data).forEach(s => s.popIndex(rowIdx));
+    return this;
+  }
+
+  /**
    * Create a copy of the dataframe.
    */
   public copy(): DataFrame {
@@ -534,9 +542,17 @@ export class DataFrame {
   }
 
   /**
+   * Replace a column in the dataframe.
+   */
+  public replaceColumn(name: string, func: ((s: Series<any>) => Series<any>)): DataFrame {
+    this.setColumn(name, func(this.column(name)));
+    return this;
+  }
+
+  /**
    * Execute a function for each row index.
    */
-  public forEachRowIdx(func: ((i: number, df: DataFrame) => any)): void {
+  public forEachRowIdx(func: ((i: number, df: DataFrame) => any)): DataFrame {
     Object.values(this.data)[0].forEach((_, i) => func(i, this));
   }
 
