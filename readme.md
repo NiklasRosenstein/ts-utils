@@ -1,6 +1,6 @@
 # @nrosenstein/ts-utils
 
-Various stuff implemented in TypeScript.
+Various things implemented in TypeScript.
 
 ## Contents
 
@@ -25,6 +25,4 @@ console.log(df.column("col2").sum());  // 7
 
 ### Publishing
 
-    $ npm run build
-    $ cd ./dist
-    $ npm publish
+Use `npm run publish` instead of `npm publish`.
