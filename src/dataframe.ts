@@ -1,8 +1,15 @@
 
+import * as mas from "multiple-array-sorter";
+
 type MapFunction<R, T> = (value: T, index: number) => R;
 type ReduceFunction<R, V> = (agg: R, value: V, index: number) => R;
 type ComparatorFunction<T> = (a: T, b: T) => number;
 type Row = {[k: string]: any};
+
+interface SortProps {
+  inplace?: boolean,
+  sortOrder?: 'asc' | 'desc',
+}
 
 /**
  * Repeat the value n times.
@@ -353,6 +360,16 @@ export class DataFrame {
     }
   }
 
+  private resolveColumn(column: string | Series<any>): Series<any> {
+    if (typeof column === 'string') {
+      column = this.column(column);
+    }
+    else if (column.size() != this.size()) {
+      throw new Error("column size does not match dataframe size");
+    }
+    return column;
+  }
+
   /**
    * Returns the number of rows in the dataframe.
    */
@@ -408,6 +425,26 @@ export class DataFrame {
    */
   public setRow(index: number, row: Row) {
     Object.values(this.data).forEach(s => s.set(index, row[s.name!]));
+  }
+
+  /**
+   * Create a copy of the dataframe.
+   */
+  public copy(): DataFrame {
+    return new DataFrame(Object.values(this.data)[0].data.map((_, rowIdx) => this.row(rowIdx)));
+  }
+
+  /**
+   * Sort the dataframe by the specified column.
+   */
+  public sortBy(column: string | Series<any>, sortProps?: SortProps): DataFrame {
+    const self = (sortProps?.inplace || false) ? this : this.copy();
+    column = this.resolveColumn(column);
+    const moveMap = mas.getMoveMap(
+      column.data,
+      {sortProp: undefined, sortOrder: sortProps?.sortOrder || 'asc'});
+    Object.values(self.data).forEach(s => s.data = mas.sortArrayBasedOnMoveMap(s.data, moveMap.moveMap));
+    return self;
   }
 
   /**

@@ -22,5 +22,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/nrosenstein-libs/ts-utils.git"
+  },
+  "dependencies": {
+    "multiple-array-sorter": "^1.1.0"
   }
 }

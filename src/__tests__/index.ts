@@ -29,5 +29,16 @@ test('create dataframe', () => {
     "4 5 bar  ?\n" +
     "1 2 spam ?\n" +
     "? 7 eggs 42\n"
-  )
+  );
+
+  const sortedDf = df.sortBy('c');
+  expect(sortedDf.toString()).toBe(
+    "a b c    d\n" +
+    "- - ---- --\n" +
+    "4 5 bar  ?\n" +
+    "? 7 eggs 42\n" +
+    "1 2 spam ?\n"
+  );
+  expect(df.toString() == sortedDf.toString()).toBe(false);
+
 })
