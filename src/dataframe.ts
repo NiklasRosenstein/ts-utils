@@ -554,6 +554,7 @@ export class DataFrame {
    */
   public forEachRowIdx(func: ((i: number, df: DataFrame) => any)): DataFrame {
     Object.values(this.data)[0].forEach((_, i) => func(i, this));
+    return this;
   }
 
   /**
