@@ -55,6 +55,14 @@ test('create dataframe', () => {
     "?  5   spam\n"
   );
 
+  aggDf.removeRow(-1);
+
+  expect(aggDf.toString()).toBe(
+    "d  sum max\n" +
+    "-- --- ----\n" +
+    "42 0   eggs\n"
+  );
+
 })
 
 test("readme example", () => {

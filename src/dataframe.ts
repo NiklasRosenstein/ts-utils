@@ -44,6 +44,19 @@ export class Series<T> {
   }
 
   /** @internal */
+  public withUnowned<R>(func: () => R): R {
+    const temp = {owner: this.owner, name: this.name};
+    this.owner = this.name = undefined;
+    try {
+      return func();
+    }
+    finally {
+      this.owner = temp.owner;
+      this.name = temp.name;
+    }
+  }
+
+  /** @internal */
   public assertUnowned(operation: string): void {
     if (this.owner !== undefined) {
       throw new Error("individual operation \"" + operation +
@@ -464,7 +477,7 @@ export class DataFrame {
    * Remove a row from the dataframe.
    */
   public removeRow(rowIdx: number): DataFrame {
-    Object.values(this.data).forEach(s => s.popIndex(rowIdx));
+    Object.values(this.data).forEach(s => s.withUnowned(() => s.popIndex(rowIdx)));
     return this;
   }
 
