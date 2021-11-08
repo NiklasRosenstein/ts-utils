@@ -3,11 +3,8 @@
   "author": "Niklas Rosenstein",
   "version": "0.0.4",
   "license": "MIT",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "files": [
-    "dist/"
-  ],
+  "main": "index.js",
+  "types": "index.d.ts",
   "devDependencies": {
     "@babel/preset-env": "^7.16.0",
     "@babel/preset-typescript": "^7.16.0",
