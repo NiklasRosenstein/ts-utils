@@ -534,6 +534,13 @@ export class DataFrame {
   }
 
   /**
+   * Execute a function for each row index.
+   */
+  public forEachRowIdx(func: ((i: number, df: DataFrame) => any)): void {
+    Object.values(this.data)[0].forEach((_, i) => func(i, this));
+  }
+
+  /**
    * Return a string formatting the dataframe as a table.
    */
   public toString(): string {
