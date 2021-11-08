@@ -20,6 +20,11 @@ __Quickstart__
 ```ts
 import { DataFrame } from "@nrosenstein/ts-utils/dataframe";
 
-let df = new DataFrame([[1, 2, 3], {4, 5, 6]], ["col1", "col2", "col3"]);
-console.log(df.column("col2").sum());  // 7
+let df = new DataFrame([[1, 2, 3], [1, 5, 6], [2, 8, 9]], ["col1", "col2", "col3"]);
+expect(df.column("col2").sum()).toBe(15);
+
+let agg = df.groupBy("col1").agg(df => ({
+  sum: df.column("col2").sum()
+}))
+expect(agg.column("sum").toArray()).toStrictEqual([7, 8]);
 ```

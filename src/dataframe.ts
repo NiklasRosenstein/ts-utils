@@ -285,7 +285,7 @@ export class Series<T> {
     }
     const data = [...this.data];
     data.sort();
-    return data[data.length / 2] as unknown as number;
+    return data[Math.floor(data.length / 2)] as unknown as number;
   }
 
   /**
@@ -499,7 +499,7 @@ export class DataFrame {
    * processor function for each group. The column on which the partition is performed must be
    * sortable.
    */
-  public partition(
+  public groupBy(
     column_: string | Series<any>,
     inplaceSort: boolean = false,
   ): DataFramePartition<any> {
@@ -588,6 +588,5 @@ export class DataFramePartition<T> {
     };
     return this.partitions.map(item => toDF(item.key, processGroup(item.df))).reduce((agg, df) => agg.union(df));
   }
-
 
 }

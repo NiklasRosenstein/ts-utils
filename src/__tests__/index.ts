@@ -41,7 +41,7 @@ test('create dataframe', () => {
   );
   expect(df.toString() == sortedDf.toString()).toBe(false);
 
-  const aggDf = df.partition('d').agg(df => ({
+  const aggDf = df.groupBy('d').agg(df => ({
     sum: df.column("a").sum(),
     max: df.column("c").max((a, b) => a.length - b.length),
   }));
@@ -53,4 +53,16 @@ test('create dataframe', () => {
     "?  5   spam\n"
   );
 
+})
+
+test("readme example", () => {
+  let df = new DataFrame([[1, 2, 3], [1, 5, 6], [2, 8, 9]], ["col1", "col2", "col3"]);
+  expect(df.column("col1").median()).toBe(1);
+  expect(df.column("col1").mean()).toBe(4/3);
+  expect(df.column("col2").sum()).toBe(15);
+
+  let agg = df.groupBy("col1").agg(df => ({
+    sum: df.column("col2").sum()
+  }))
+  expect(agg.column("sum").toArray()).toStrictEqual([7, 8]);
 })
