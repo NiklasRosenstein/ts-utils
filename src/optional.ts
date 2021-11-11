@@ -19,6 +19,10 @@
     return this.value === undefined ? fallback : this.value;
   }
 
+  public orElse(func: () => T): T {
+    return this.value === undefined ? func() : this.value;
+  }
+
   public map<R>(func: (value: T) => R): Optional<R> {
     return new Optional(this.value === undefined ? undefined : func(this.value));
   }

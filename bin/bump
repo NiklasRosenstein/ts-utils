@@ -29,6 +29,8 @@ elif not confirm(f'Bump version to {version}?'):
 with open('package.json', 'w') as fp:
   json.dump(package, fp, indent=2)
 
+sp.check_call(['npm', 'run', 'test'])
+
 if not args.yes and not confirm('Commit and tag version bump?'):
   exit()
 
