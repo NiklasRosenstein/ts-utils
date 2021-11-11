@@ -1,36 +1,47 @@
 #!/usr/bin/env python3
 
+import argparse
 import json
 import subprocess as sp
 from click import confirm
 from packaging.version import Version
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-y', '--yes', action='store_true')
+parser.add_argument('version', required=False)
+args = parser.parse_args()
+
 with open('package.json') as fp:
   package = json.load(fp)
 
-version = Version(package['version'])
-version = Version(f'{version.major}.{version.minor}.{version.micro + 1}')
+if args.version:
+  version = Version(args.version)
+else:
+  version = Version(package['version'])
+  version = Version(f'{version.major}.{version.minor}.{version.micro + 1}')
 package['version'] = str(version)
 
-if not confirm(f'Bump version to {version}?'):
-  exit()
+if args.yes:
+  print('Bump to version', version)
+elif not confirm(f'Bump version to {version}?'):
+    exit()
 
 with open('package.json', 'w') as fp:
   json.dump(package, fp, indent=2)
 
-if not confirm('Commit and tag version bump?'):
+if not args.yes and not confirm('Commit and tag version bump?'):
   exit()
 
 sp.check_call(['git', 'add', 'package.json'])
 sp.check_call(['git', 'commit', '-m', 'bump to ' + str(version)])
 sp.check_call(['git', 'tag', str(version)])
 
-if not confirm('Push to remote?'):
+if not args.yes and not confirm('Push to remote?'):
   exit()
 
 sp.check_call(['git', 'push', 'origin', 'develop', str(version)])
 
-if not confirm('Publish?'):
+if not args.yes and not confirm('Publish?'):
   exit()
 
 sp.check_call(['npm', 'run', 'publish'])
