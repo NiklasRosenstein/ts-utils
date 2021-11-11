@@ -1,5 +1,6 @@
 
 import * as mas from "multiple-array-sorter";
+import { coalesce } from "./functions"
 
 type MapFunction<R, T> = (value: T, index: number) => R;
 type ReduceFunction<R, V> = (agg: R, value: V, index: number) => R;
@@ -193,8 +194,8 @@ export class Series<T> {
    */
   public indexOf(arg: T | MapFunction<boolean, T>, start?: number, stop?: number): number {
     if (typeof arg === 'function') {
-      stop = Math.min(stop || this.data.length, this.data.length);
-      for (let i = this.wrapIndex(start || 0); i < this.wrapIndex(stop); ++i) {
+      stop = Math.min(coalesce(stop, this.data.length), this.data.length);
+      for (let i = this.wrapIndex(coalesce(start, 0)); i < this.wrapIndex(stop); ++i) {
         if ((arg as MapFunction<boolean, T>)(this.data[i], i)) {
           return i;
         }
@@ -208,8 +209,8 @@ export class Series<T> {
    * Run the function for each value.
    */
   public forEach(func: MapFunction<void, T>, start?: number, stop?: number): void {
-    stop = Math.min(stop || this.data.length, this.data.length);
-    for (let i = this.wrapIndex(start || 0); i < this.wrapIndex(stop); ++i) {
+    stop = Math.min(coalesce(stop, this.data.length), this.data.length);
+    for (let i = this.wrapIndex(coalesce(start, 0)); i < this.wrapIndex(stop); ++i) {
       func(this.data[i], i);
     }
   }
@@ -275,7 +276,7 @@ export class Series<T> {
    * Calculate the sum of all elements in the series. The series must contain numbers.
    */
   public sum(): number {
-    return (this as unknown as Series<number>).reduce((agg, v) => agg + (v || 0.0), 0.0);
+    return (this as unknown as Series<number>).reduce((agg, v) => agg + coalesce(v, 0), 0.0);
   }
 
   /**
@@ -283,7 +284,7 @@ export class Series<T> {
    */
   public cumulativeSum(): Series<number> {
     return (this as unknown as Series<number>).reduce(
-      (s, v) => s.append((s.size() === 0 ? 0 : s.get(-1)) + (v || 0)),
+      (s, v) => s.append((s.size() === 0 ? 0 : s.get(-1)) + coalesce(v, 0)),
       new Series<number>()
     );
   }
@@ -515,11 +516,11 @@ export class DataFrame {
    * Sort the dataframe by the specified column.
    */
   public sortBy(column: string | Series<any>, sortProps?: SortProps): DataFrame {
-    const self = (sortProps?.inplace || false) ? this : this.copy();
+    const self = (coalesce(sortProps?.inplace, false)) ? this : this.copy();
     column = self.resolveColumn(column);
     const moveMap = mas.getMoveMap(
       column.data,
-      {sortProp: undefined, sortOrder: sortProps?.sortOrder || 'asc'});
+      {sortProp: undefined, sortOrder: coalesce(sortProps?.sortOrder, 'asc')});
     Object.values(self.data).forEach(s => s.data = mas.sortArrayBasedOnMoveMap(s.data, moveMap.moveMap));
     column.data = moveMap.sortedMasterArray;
     return self;
@@ -645,7 +646,7 @@ export class DataFramePartition<T> {
         }
         return entry;
       });
-      entries.splice(0, 0, [this.name || '_key', new Series<any>(repeat(currentValue, count || 1))]);
+      entries.splice(0, 0, [this.name || '_key', new Series<any>(repeat(currentValue, coalesce(count, 1)))]);
       return new DataFrame(Object.fromEntries(entries));
     };
     return this.partitions.map(item => toDF(item.key, processGroup(item.df))).reduce((agg, df) => agg.union(df));
