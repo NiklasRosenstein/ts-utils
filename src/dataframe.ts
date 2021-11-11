@@ -578,6 +578,21 @@ export class DataFrame {
   }
 
   /**
+   * Filter the rows in the dataframe.
+   */
+  public filter(func: MapFunction<boolean, Row>, inplace: boolean = false): DataFrame {
+    const self = inplace ? this : this.copy();
+    let offset = 0;
+    self.forEach(rowIdx => {
+      if (func(self.row(rowIdx - offset), rowIdx)) {
+        self.removeRow(rowIdx - offset);
+        offset++;
+      }
+    });
+    return self;
+  }
+
+  /**
    * Execute a function for each row index.
    */
   public forEach(func: ((i: number, df: DataFrame) => any)): DataFrame {

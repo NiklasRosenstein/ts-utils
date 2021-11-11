@@ -63,6 +63,12 @@ test('create dataframe', () => {
     "42 0   eggs\n"
   );
 
+  const filteredDf = df.filter(row => row['d'] == undefined);
+  expect(filteredDf.toString()).toBe(
+    "a b c    d\n" +
+    "- - ---- --\n" +
+    "? 7 eggs 42\n"
+  );
 })
 
 test("readme example", () => {
