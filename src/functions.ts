@@ -5,7 +5,7 @@
 /**
  * Take *fallback* if *val* is `undefined` or `null`, otherwise take *val*.
  */
-function coalesce<T>(val: T | undefined | null, fallback: T): T {
+export function coalesce<T>(val: T | undefined | null, fallback: T): T {
   if (val === undefined || val === null) {
     return fallback;
   }
