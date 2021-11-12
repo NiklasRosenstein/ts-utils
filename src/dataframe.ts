@@ -567,6 +567,9 @@ export class DataFrame {
    * Map dataframe rows.
    */
   public map<R>(func: MapFunction<R, Row>): R[] {
+    if (this.data === {}) {
+      return [];
+    }
     return Object.values(this.data)[0].data.map((_, i) => func(this.row(i), i));
   }
 
@@ -574,6 +577,9 @@ export class DataFrame {
    * Flatmap dataframe rows.
    */
   public flatMap<R>(func: MapFunction<R, Row>): R[] {
+    if (this.data === {}) {
+      return [];
+    }
     return Object.values(this.data)[0].data.flatMap((_, i) => func(this.row(i), i));
   }
 
@@ -596,7 +602,9 @@ export class DataFrame {
    * Execute a function for each row index.
    */
   public forEach(func: ((i: number, df: DataFrame) => any)): DataFrame {
-    Object.values(this.data)[0].forEach((_, i) => func(i, this));
+    if (this.data !== {}) {
+      Object.values(this.data)[0].forEach((_, i) => func(i, this));
+    }
     return this;
   }
 
@@ -604,6 +612,10 @@ export class DataFrame {
    * Return a string formatting the dataframe as a table.
    */
   public toString(): string {
+    if (this.data === {}) {
+      return "(Empty dataframe)";
+    }
+
     // Convert all series to strings, replacing `undefined` with "?".
     const series = Object.values(this.data).map(s => s.map(x => '' + (x === undefined ? '?' : x)));
 
