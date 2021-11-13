@@ -1,7 +1,7 @@
 {
   "name": "@nrosenstein/ts-utils",
   "author": "Niklas Rosenstein",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "license": "MIT",
   "main": "index.js",
   "types": "index.d.ts",
