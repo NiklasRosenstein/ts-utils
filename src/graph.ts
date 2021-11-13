@@ -2,7 +2,7 @@
 interface _Entry<K, V, EV> {
   node: V,
   inkeys: Map<K, EV>,
-  outkeys: Set<K>,
+  outkeys: Map<K, EV>,
 };
 
 interface _DotvizOptions<K, V, EV> {
@@ -58,7 +58,11 @@ export class DiGraph<K, V = void, EV = void> {
    */
   public addNode(key: K, node: V): void {
     const entry = this._nodes.get(key);
-    this._nodes.set(key, {node: node, inkeys: entry?.inkeys || new Map<K, EV>(), outkeys: entry?.outkeys || new Set()});
+    this._nodes.set(key, {
+      node: node,
+      inkeys: entry?.inkeys || new Map(),
+      outkeys: entry?.outkeys || new Map(),
+    });
   }
 
   /**
@@ -101,7 +105,7 @@ export class DiGraph<K, V = void, EV = void> {
   public removeNode(key: K): void {
     const entry = this._nodes.get(key);
     if (entry !== undefined) {
-      entry.outkeys.forEach(outkey => this.checkHasNode(outkey).inkeys.delete(key));
+      entry.outkeys.forEach((_, outkey) => this.checkHasNode(outkey).inkeys.delete(key));
       entry.inkeys.forEach((_, inkey) => this.checkHasNode(inkey).outkeys.delete(key));
       this._nodes.delete(key);
     }
@@ -114,7 +118,7 @@ export class DiGraph<K, V = void, EV = void> {
   public addEdge(key1: K, key2: K, value: EV): void {
     const node1 = this.checkHasNode(key1);
     const node2 = this.checkHasNode(key2);
-    node1.outkeys.add(key2);
+    node1.outkeys.set(key2, value);
     node2.inkeys.set(key1, value);
   }
 
@@ -193,6 +197,20 @@ export class DiGraph<K, V = void, EV = void> {
       }
     });
     return result;
+  }
+
+  /**
+   * Get the input edges for a node.
+   */
+  public inputs(key: K): ReadonlyMap<K, EV> {
+    return this.checkHasNode(key).inkeys;
+  }
+
+  /**
+   * Get the output edges for a node.
+   */
+  public outputs(key: K): ReadonlyMap<K, EV> {
+    return this.checkHasNode(key).outkeys;
   }
 
   /**
