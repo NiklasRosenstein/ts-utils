@@ -214,6 +214,21 @@ export class DiGraph<K, V = void, EV = void> {
   }
 
   /**
+   * Create a copy of the graph.
+   */
+  public copy(): DiGraph<K, V, EV> {
+    const copy = new DiGraph<K, V, EV>();
+    this._nodes.forEach((entry, key) => {
+      copy._nodes.set(key, {
+        node: entry.node,
+        inkeys: new Map(entry.inkeys.entries()),
+        outkeys: new Map(entry.outkeys.entries()),
+      });
+    });
+    return copy;
+  }
+
+  /**
    * Produce a simple Dotviz representation of the graph.
    *
    * TODO: Implement use of edgelabels and nodelabels.

@@ -14,13 +14,14 @@ test('graph', () => {
   expect([...graph.roots().keys()]).toStrictEqual(["a"]);
   expect([...graph.leafs().keys()]).toStrictEqual(["d"]);
 
+  const graphCopy = graph.copy();
+  expect(graphCopy.nodes()).toStrictEqual(graph.nodes());
+  expect(graphCopy.roots()).toStrictEqual(graph.roots());
+  expect(graphCopy.leafs()).toStrictEqual(graph.leafs());
+
   // Overwrite values of existing edges.
   graph.addEdge("a", "b", "ab-edge");
   graph.addEdge("b", "d", "bd-edge");
-
-  console.log(graph['_nodes']);
-  console.log(graph.inputs("b"));
-  console.log(graph.outputs("b"));
 
   expect(graph.edge("a", "b") == 42);
   expect(new Set(graph.inputs("d").keys())).toStrictEqual(new Set(["b", "c"]));
@@ -34,5 +35,4 @@ test('graph', () => {
   expect(new Set(graph.edges())).toStrictEqual(new Set([["a", "b"], ["a", "c"], ["b", "d"]]));
   expect([...graph.roots().keys()]).toStrictEqual(["a"]);
   expect([...graph.leafs().keys()]).toStrictEqual(["c", "d"]);
-
 });
