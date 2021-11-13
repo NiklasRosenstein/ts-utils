@@ -613,7 +613,7 @@ export class DataFrame {
    * Return a string formatting the dataframe as a table.
    */
   public toString(): string {
-    if (this.data === {}) {
+    if (this.size() === 0) {
       return "(Empty dataframe)";
     }
 

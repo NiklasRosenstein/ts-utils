@@ -1,8 +1,12 @@
 
 import { DataFrame } from "../dataframe"
 
-test("DataFrame.size", () => {
+test("DataFrame.size if empty", () => {
   expect(new DataFrame().size()).toBe(0);
+})
+
+test("DataFrame.toString() if empty", () => {
+  expect(new DataFrame().toString()).toBe("(Empty dataframe)");
 })
 
 test("create dataframe", () => {
