@@ -5,10 +5,11 @@ interface _Entry<K, V, EV> {
   outkeys: Set<K>,
 };
 
-interface _DotvizOptions<K, V> {
+interface _DotvizOptions<K, V, EV> {
   title?: string,
   keytostring?: (key: K) => string,
-  label?: (node: V, key: K) => string,
+  nodelabel?: (node: V, key: K) => string,
+  edgelabel?: (e: EV, node1: V, key1: K, node2: V, key2: V) => string,
 };
 
 /**
@@ -32,7 +33,7 @@ export class DiGraph<K, V = void, EV = void> {
    * node must be specified. Optionally, a function to retrieve the *inputs* of each node can be
    * specified to populate the edges of the graph in the constructor.
    */
-  public constructor(nodes: readonly V[], key: ((n: V) => K), inputs?: ((n: V) => K[]));
+  public constructor(nodes: readonly V[], key: ((n: V) => K), inputs?: ((n: V) => [K, EV][]));
 
   public constructor(nodes?: readonly V[], key?: ((n: V) => K), inputs?: ((n: V) => [K, EV][])) {
     this._nodes = new Map();
@@ -76,7 +77,7 @@ export class DiGraph<K, V = void, EV = void> {
   public node(key: K, orNull: true): V | null;
 
   public node(key: K, orNull: boolean = false) {
-    return orNull ? this._nodes.get(key)?.node || null :  this.checkHasNode(key).node;
+    return orNull ? this._nodes.get(key)?.node || null : this.checkHasNode(key).node;
   }
 
   /**
@@ -125,6 +126,33 @@ export class DiGraph<K, V = void, EV = void> {
   }
 
   /**
+   * Read the value of an edge. Throws an error if the edge does not exist.
+   */
+  public edge(key1: K, key2: K): EV;
+
+  /**
+   * Read the value of an edge, or return null if it doesn't exist.
+   */
+  public edge(key1: K, key2: K, orNull: true): EV | null;
+
+  public edge(key1: K, key2: K, orNull: boolean = false): EV | null {
+    if (orNull) {
+      const node = this._nodes.get(key2);
+      if (node !== undefined) {
+        return node.inkeys.get(key1) || null;
+      }
+      return null;
+    }
+    else {
+      const result = this.checkHasNode(key2).inkeys.get(key1);
+      if (result === undefined) {
+        throw new Error('edge "' + key1 + '" -> "' + key2 + '"');
+      }
+      return result;
+    }
+  }
+
+  /**
    * Returns a list of all edges in the graph ordered as (inkey, key).
    */
   public edges(): [K, K][] {
@@ -169,8 +197,10 @@ export class DiGraph<K, V = void, EV = void> {
 
   /**
    * Produce a simple Dotviz representation of the graph.
+   *
+   * TODO: Implement use of edgelabels and nodelabels.
    */
-  public dotviz(options: _DotvizOptions<K, V> = {}): string {
+  public dotviz(options: _DotvizOptions<K, V, EV> = {}): string {
     const parts: string[] = ['digraph'];
     if (options.title !== undefined) parts.push(' ' + options.title);
     parts.push(' {\n');

@@ -9,7 +9,7 @@ const diamond = [
 ];
 
 test('graph', () => {
-  const graph = new DiGraph(diamond, n => n.k, n => n.i);
+  const graph = new DiGraph(diamond, n => n.k, n => n.i.map(v => [v, undefined]) as [string, any][]);
   expect(new Set(graph.edges())).toStrictEqual(new Set([["a", "b"], ["a", "c"], ["c", "d"], ["b", "d"]]));
   expect([...graph.roots().keys()]).toStrictEqual(["a"]);
   expect([...graph.leafs().keys()]).toStrictEqual(["d"]);
@@ -18,4 +18,7 @@ test('graph', () => {
   expect(new Set(graph.edges())).toStrictEqual(new Set([["a", "b"], ["a", "c"], ["b", "d"]]));
   expect([...graph.roots().keys()]).toStrictEqual(["a"]);
   expect([...graph.leafs().keys()]).toStrictEqual(["c", "d"]);
+
+  graph.addEdge("a", "b", 42);
+  expect(graph.edge("a", "b") == 42);
 });
