@@ -429,6 +429,13 @@ export class DataFrame {
   }
 
   /**
+   * Returns true if the dataframe is empty.
+   */
+  public empty(): boolean {
+    return Object.keys(this.data).length === 0;
+  }
+
+  /**
    * Return the column names present in the dataframe.
    */
   public columnNames(): string[] {
@@ -568,7 +575,7 @@ export class DataFrame {
    * Map dataframe rows.
    */
   public map<R>(func: MapFunction<R, Row>): R[] {
-    if (this.data === {}) {
+    if (this.empty()) {
       return [];
     }
     return Object.values(this.data)[0].data.map((_, i) => func(this.row(i), i));
@@ -578,7 +585,7 @@ export class DataFrame {
    * Flatmap dataframe rows.
    */
   public flatMap<R>(func: MapFunction<R, Row>): R[] {
-    if (this.data === {}) {
+    if (this.empty()) {
       return [];
     }
     return Object.values(this.data)[0].data.flatMap((_, i) => func(this.row(i), i));
@@ -613,7 +620,7 @@ export class DataFrame {
    * Return a string formatting the dataframe as a table.
    */
   public toString(): string {
-    if (this.size() === 0) {
+    if (this.empty()) {
       return "(Empty dataframe)";
     }
 

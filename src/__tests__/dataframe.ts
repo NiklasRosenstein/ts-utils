@@ -1,12 +1,20 @@
 
 import { DataFrame } from "../dataframe"
 
-test("DataFrame.size if empty", () => {
+test("DataFrame.size() if empty", () => {
   expect(new DataFrame().size()).toBe(0);
 })
 
 test("DataFrame.toString() if empty", () => {
   expect(new DataFrame().toString()).toBe("(Empty dataframe)");
+})
+
+test("DataFrame.map() if empty", () => {
+  expect(new DataFrame().map(t => t)).toStrictEqual([]);
+})
+
+test("DataFrame.flatMap() if empty", () => {
+  expect(new DataFrame().flatMap(t => [])).toStrictEqual([]);
 })
 
 test("create dataframe", () => {
