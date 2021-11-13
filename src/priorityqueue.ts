@@ -169,4 +169,11 @@ export class PriorityQueue<T> {
   public values(): T[] {
     return this._items.map(item => item.value);
   }
+
+  /**
+   * Map the items of the priority queue.
+   */
+  public mapItems<R>(func: ((item: _Item<T>, index: number, queue: PriorityQueue<T>) => R)): R[] {
+    return this._items.map((value, idx) => func(value, idx, this));
+  }
 }
