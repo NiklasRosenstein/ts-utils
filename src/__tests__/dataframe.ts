@@ -1,7 +1,7 @@
 
 import { DataFrame } from "../dataframe"
 
-test('create dataframe', () => {
+test("create dataframe", () => {
   const df = new DataFrame([
     [4, 5, "bar"],
     {a: 1, b: 2, c: "spam"},
