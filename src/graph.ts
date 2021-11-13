@@ -217,10 +217,17 @@ export class DiGraph<K, V = void, EV = void> {
    * Create a copy of the graph.
    */
   public copy(): DiGraph<K, V, EV> {
-    const copy = new DiGraph<K, V, EV>();
+    return this.map(n => n);
+  }
+
+  /**
+   * Create a copy of the graph with the node values replaced.
+   */
+  public map<R>(func: ((n: V, k: K, g: DiGraph<K, V, EV>) => R)): DiGraph<K, R, EV> {
+    const copy = new DiGraph<K, R, EV>();
     this._nodes.forEach((entry, key) => {
       copy._nodes.set(key, {
-        node: entry.node,
+        node: func(entry.node, key, this),
         inkeys: new Map(entry.inkeys.entries()),
         outkeys: new Map(entry.outkeys.entries()),
       });
