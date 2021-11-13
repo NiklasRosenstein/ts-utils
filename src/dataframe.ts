@@ -421,10 +421,11 @@ export class DataFrame {
    * Returns the number of rows in the dataframe.
    */
   public size(): number {
-    if (this.data === {}) {
+    const serieses = Object.values(this.data);
+    if (serieses.length === 0) {
       return 0;
     }
-    return Object.values(this.data)[0].size();
+    return serieses[0].size();
   }
 
   /**

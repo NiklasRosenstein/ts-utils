@@ -1,6 +1,10 @@
 
 import { DataFrame } from "../dataframe"
 
+test("DataFrame.size", () => {
+  expect(new DataFrame().size()).toBe(0);
+})
+
 test("create dataframe", () => {
   const df = new DataFrame([
     [4, 5, "bar"],
