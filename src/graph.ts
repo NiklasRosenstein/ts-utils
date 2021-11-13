@@ -45,6 +45,13 @@ export class DiGraph<K, V = void> {
   }
 
   /**
+   * Returns true if the graph is empty (has no nodes).
+   */
+  public empty(): boolean {
+    return this._nodes.size === 0;
+  }
+
+  /**
    * Add a node to the graph. Throws an error if the node already exists.
    */
   public addNode(key: K, node: V): void {
