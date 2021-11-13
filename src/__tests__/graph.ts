@@ -36,3 +36,28 @@ test('graph', () => {
   expect([...graph.roots().keys()]).toStrictEqual(["a"]);
   expect([...graph.leafs().keys()]).toStrictEqual(["c", "d"]);
 });
+
+test('traverse roots', () => {
+  const graph = new DiGraph(diamond, n => n.k, n => n.i.map(v => [v, undefined]) as [string, any][]);
+  const rootOrder = [["a"], ["b", "c"], ["d"], []];
+  rootOrder.forEach(expected => {
+    const roots = graph.roots();
+    expect([...roots.keys()]).toStrictEqual(expected);
+    [...roots.keys()].forEach(k => graph.removeNode(k));
+  });
+  expect(graph.nodes()).toStrictEqual(new Map());
+  expect(graph.edges()).toStrictEqual([]);
+});
+
+
+test('traverse leafs', () => {
+  const graph = new DiGraph(diamond, n => n.k, n => n.i.map(v => [v, undefined]) as [string, any][]);
+  const rootOrder = [["d"], ["b", "c"], ["a"], []];
+  rootOrder.forEach(expected => {
+    const leafs = graph.leafs();
+    expect([...leafs.keys()]).toStrictEqual(expected);
+    [...leafs.keys()].forEach(k => graph.removeNode(k));
+  });
+  expect(graph.nodes()).toStrictEqual(new Map());
+  expect(graph.edges()).toStrictEqual([]);
+});
