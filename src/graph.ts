@@ -79,6 +79,13 @@ export class DiGraph<K, V = void> {
   }
 
   /**
+   * Return the number of nodes in the graph.
+   */
+  public numNodes(): number {
+    return this._nodes.size;
+  }
+
+  /**
    * Remove a node from the graph. All edges connecting to the node will be removed.
    */
   public removeNode(key: K): void {
