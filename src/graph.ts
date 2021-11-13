@@ -1,7 +1,7 @@
 
-interface _Entry<K, V> {
+interface _Entry<K, V, EV> {
   node: V,
-  inkeys: Set<K>,
+  inkeys: Map<K, EV>,
   outkeys: Set<K>,
 };
 
@@ -19,8 +19,8 @@ interface _DotvizOptions<K, V> {
  * @note Batch graph modifications that error can leave the modification in a state where the
  *       modifications where partially applied.
  */
-export class DiGraph<K, V = void> {
-  private _nodes: Map<K, _Entry<K, V>>;
+export class DiGraph<K, V = void, EV = void> {
+  private _nodes: Map<K, _Entry<K, V, EV>>;
 
   /**
    * Create an empty graph.
@@ -34,12 +34,12 @@ export class DiGraph<K, V = void> {
    */
   public constructor(nodes: readonly V[], key: ((n: V) => K), inputs?: ((n: V) => K[]));
 
-  public constructor(nodes?: readonly V[], key?: ((n: V) => K), inputs?: ((n: V) => K[])) {
+  public constructor(nodes?: readonly V[], key?: ((n: V) => K), inputs?: ((n: V) => [K, EV][])) {
     this._nodes = new Map();
     if (nodes !== undefined) {
       nodes.forEach(node => this.addNode(key!(node), node));
       if (inputs !== undefined) {
-        this._nodes.forEach((entry, k) => this.addEdges(inputs!(entry.node), k));
+        this._nodes.forEach((entry, k) => inputs!(entry.node).map(([inkey, edge]) => this.addEdge(inkey, k, edge)));
       }
     }
   }
@@ -52,11 +52,12 @@ export class DiGraph<K, V = void> {
   }
 
   /**
-   * Add a node to the graph. Throws an error if the node already exists.
+   * Add a node to the graph. If the node already exists, the value of the node is overwritten but
+   * its edges are retained.
    */
   public addNode(key: K, node: V): void {
-    this.checkNotHasNode(key);
-    this._nodes.set(key, {node: node, inkeys: new Set(), outkeys: new Set()});
+    const entry = this._nodes.get(key);
+    this._nodes.set(key, {node: node, inkeys: entry?.inkeys || new Map<K, EV>(), outkeys: entry?.outkeys || new Set()});
   }
 
   /**
@@ -93,28 +94,27 @@ export class DiGraph<K, V = void> {
   }
 
   /**
-   * Remove a node from the graph. All edges connecting to the node will be removed.
+   * Remove a node from the graph. All edges connecting to the node will be removed. This is
+   * a no-op if the node does not exist in the graph.
    */
   public removeNode(key: K): void {
-    const entry = this.checkHasNode(key);
-    entry.outkeys.forEach(outkey => this.checkHasNode(outkey).inkeys.delete(key));
-    entry.inkeys.forEach(inkey => this.checkHasNode(inkey).outkeys.delete(key));
-    this._nodes.delete(key);
+    const entry = this._nodes.get(key);
+    if (entry !== undefined) {
+      entry.outkeys.forEach(outkey => this.checkHasNode(outkey).inkeys.delete(key));
+      entry.inkeys.forEach((_, inkey) => this.checkHasNode(inkey).outkeys.delete(key));
+      this._nodes.delete(key);
+    }
   }
 
   /**
-   * Add directed edges from one node identified by *key* to the other nodes in *outputs*.
+   * Add directed edge from node *key1* to node *key2*, saving the given value for *edge* along with it.
+   * If the edge already exists, it will be overwritten.
    */
-  public addEdges(key: K, outputs: K[]): void;
-
-  /**
-   * Add directed edges from the nodes in *inputs* to the node identified by *key*.
-   */
-  public addEdges(inputs: K[], key: K): void;
-
-  public addEdges(arg1: K | K[], arg2: K[] | K): void {
-    if (Array.isArray(arg1)) this._addEdges1(arg1 as K[], arg2 as K);
-    else this._addEdges2(arg1 as K, arg2 as K[]);
+  public addEdge(key1: K, key2: K, value: EV): void {
+    const node1 = this.checkHasNode(key1);
+    const node2 = this.checkHasNode(key2);
+    node1.outkeys.add(key2);
+    node2.inkeys.set(key1, value);
   }
 
   /**
@@ -128,22 +128,17 @@ export class DiGraph<K, V = void> {
    * Returns a list of all edges in the graph ordered as (inkey, key).
    */
   public edges(): [K, K][] {
-    return [...this._nodes.entries()].flatMap(e => [...e[1].inkeys.values()].map(inkey => [inkey, e[0]] as [K, K]));
+    return [...this._nodes.entries()].flatMap(e => [...e[1].inkeys.keys()].map(inkey => [inkey, e[0]] as [K, K]));
   }
 
   /**
-   * Removes one or more directed edges in the order (inputs, key) from the graph.
+   * Removes a directed edge from *key1* to *key2*. This is a no-op if the edge does not exist.
    */
-  public removeEdges(inputs: K[], key: K): void;
-
-  /**
-   * Removes one or more directed edges in the order (key, outputs) from the graph.
-   */
-  public removeEdges(key: K, outputs: K[]): void;
-
-  public removeEdges(arg1: K[] | K, arg2: K | K[]): void {
-    if (Array.isArray(arg1)) this._removeEdges1(arg1 as K[], arg2 as K);
-    else this._removeEdges2(arg1 as K, arg2 as K[]);
+  public removeEdge(key1: K, key2: K): void {
+    const node1 = this.checkHasNode(key1);
+    const node2 = this.checkHasNode(key2);
+    node1.outkeys.delete(key2);
+    node2.inkeys.delete(key1);
   }
 
   /**
@@ -182,7 +177,7 @@ export class DiGraph<K, V = void> {
     const keytostring = options.keytostring ? options.keytostring : (k: K) => '' + k;
     this._nodes.forEach((entry, key) => {
       parts.push('  "' + keytostring(key) + '";\n');
-      entry.inkeys.forEach(inkey => {
+      entry.inkeys.forEach((_, inkey) => {
         parts.push('  "' + keytostring(inkey) + '" -> "' + keytostring(key) + '";\n');
       });
     });
@@ -190,7 +185,7 @@ export class DiGraph<K, V = void> {
     return parts.join('');
   }
 
-  private checkHasNode(key: K): _Entry<K, V> {
+  private checkHasNode(key: K): _Entry<K, V, EV> {
     const entry = this._nodes.get(key);
     if (entry === undefined) {
       throw new Error("key \"" + key + "\" does not exist in the graph");
@@ -198,41 +193,4 @@ export class DiGraph<K, V = void> {
     return entry;
   }
 
-  private checkNotHasNode(key: K): void {
-    if (this._nodes.has(key)) {
-      throw new Error("key \"" + key + "\" already exists in the graph");
-    }
-  }
-
-  private _addEdges1(inputs: K[], key: K): void {
-    const entry = this.checkHasNode(key);
-    inputs.forEach(inkey => {
-      this.checkHasNode(inkey).outkeys.add(key);
-      entry.inkeys.add(inkey);
-    });
-  }
-
-  private _addEdges2(key: K, outputs: K[]): void {
-    const entry = this.checkHasNode(key);
-    outputs.forEach(outkey => {
-      this.checkHasNode(outkey).inkeys.add(key);
-      entry.outkeys.add(outkey);
-    });
-  }
-
-  private _removeEdges1(inputs: K[], key: K): void {
-    const entry = this.checkHasNode(key);
-    inputs.forEach(inkey => {
-      this.checkHasNode(inkey).outkeys.delete(key);
-      entry.inkeys.delete(inkey);
-    });
-  }
-
-  private _removeEdges2(key: K, outputs: K[]): void {
-    const entry = this.checkHasNode(key);
-    outputs.forEach(outkey => {
-      this.checkHasNode(outkey).inkeys.delete(key);
-      entry.outkeys.delete(outkey);
-    })
-  }
 }

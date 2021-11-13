@@ -14,7 +14,7 @@ test('graph', () => {
   expect([...graph.roots().keys()]).toStrictEqual(["a"]);
   expect([...graph.leafs().keys()]).toStrictEqual(["d"]);
 
-  graph.removeEdges(["c"], "d");
+  graph.removeEdge("c", "d");
   expect(new Set(graph.edges())).toStrictEqual(new Set([["a", "b"], ["a", "c"], ["b", "d"]]));
   expect([...graph.roots().keys()]).toStrictEqual(["a"]);
   expect([...graph.leafs().keys()]).toStrictEqual(["c", "d"]);
