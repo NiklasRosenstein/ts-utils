@@ -19,7 +19,7 @@ interface _DotvizOptions<K, V> {
  * @note Batch graph modifications that error can leave the modification in a state where the
  *       modifications where partially applied.
  */
-export class DiGraph<K, V> {
+export class DiGraph<K, V = void> {
   private _nodes: Map<K, _Entry<K, V>>;
 
   /**
