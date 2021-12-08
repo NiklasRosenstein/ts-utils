@@ -29,7 +29,7 @@ function repeat<T>(value: T | (() => T), n: number): T[] {
 /**
  * Represents a series of data.
  */
-export class Series<T> {
+export class Series<T> implements Iterable<T> {
 
   /** @internal */
   public data: T[];
@@ -42,6 +42,10 @@ export class Series<T> {
     this.data = data || [];
     this.name = name;
     this.owner = owner;
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    return this.data[Symbol.iterator]();
   }
 
   /** @internal */
@@ -84,6 +88,17 @@ export class Series<T> {
       throw new Error("index \"" + index + "\" is out of range");
     }
     return index;
+  }
+
+  /**
+   * Rename the same series.
+   *
+   * This cannot be called when the series is attached to a {@link DataFrame}.
+   */
+  public named(name?: string): Series<T> {
+    this.assertUnowned("named");
+    this.name = name;
+    return this;
   }
 
   /**
@@ -144,7 +159,7 @@ export class Series<T> {
    * Filter the series by a predicate and returns a copy.
    */
   public filter(predicate: MapFunction<boolean, T>): Series<T> {
-    return new Series(this.data.filter(predicate), this.name);
+    return new Series(this.data.filter(predicate));
   }
 
   /**
@@ -219,14 +234,14 @@ export class Series<T> {
    * Create a copy of the series with the mapped values.
    */
   public map<R>(func: MapFunction<R, T>): Series<R> {
-    return new Series(this.data.map(func), this.name);
+    return new Series(this.data.map(func));
   }
 
   /**
    * Create a new series flat-mapped from the function.
    */
   public flatMap<R>(func: MapFunction<R[], T>): Series<R> {
-    return new Series(this.data.flatMap(func), this.name);
+    return new Series(this.data.flatMap(func));
   }
 
   /**
@@ -270,6 +285,16 @@ export class Series<T> {
       }
     }
     return current;
+  }
+
+  /**
+   * Combine with another series of the same length.
+   */
+  public zip<U, R>(other: Series<U>, f: (a: T, b: U) => R): Series<R> {
+    if (this.size() != other.size()) {
+      throw new Error(`cannot zip() series of different sizes (left: ${this.size()}), right: ${other.size()})`);
+    }
+    return this.map((v, idx) => f(v, other.get(idx)));
   }
 
   /**
@@ -402,7 +427,7 @@ export class DataFrame {
   }
 
   private checkColumn(name: string): void {
-    if (this.data[name] === undefined) {
+    if (!this.hasColumn(name)) {
       throw new Error("column \"" + name + "\" does not exist in the dataframe");
     }
   }
@@ -443,6 +468,13 @@ export class DataFrame {
   }
 
   /**
+   * Returns true if the dataframe has a column with the given name.
+   */
+  public hasColumn(name: string): boolean {
+    return this.data[name] !== undefined;
+  }
+
+  /**
    * Retrieve a column from the dataframe as a series.
    */
   public column(name: string): Series<any> {
@@ -453,19 +485,45 @@ export class DataFrame {
   /**
    * Replace a column by name.
    */
-   public setColumn(name: string, series: Series<any>): void {
+  public setColumn(name: string, series: Series<any>, toFront: boolean = false): void {
     series.assertUnowned("DataFrame.setColumn");
-    this.checkColumn(name);
     if (series.size() != this.size()) {
       throw new Error("incoming Series size (" + series.size() +
                       ") differs from DataFrame size (" + this.size() + ")");
     }
-    const old = this.data[name];
-    old.name = undefined;
-    old.owner = undefined;
-    series.name = name;
-    series.owner = this;
-    this.data[name] = series;
+    if (this.hasColumn(name)) {
+      const old = this.data[name];
+      old.name = undefined;
+      old.owner = undefined;
+      series.name = name;
+      series.owner = this;
+      this.data[name] = series;
+    }
+    else {
+      series.name = name;
+      series.owner = this;
+      this.data[name] = series;
+    }
+    if (toFront) {
+      this.data = Object.fromEntries([
+        ...Object.entries(this.data).filter(e => e[0] === name),
+        ...Object.entries(this.data).filter(e => e[0] !== name)]);
+    }
+  }
+
+  /**
+   * Drop a column from the dataframe.
+   */
+  public drop(names: string | string[], inplace: boolean = false): DataFrame {
+    if (!Array.isArray(names)) names = [names];
+    names.forEach(name => this.checkColumn(name));
+    const self = inplace ? this : this.copy();
+    names.forEach(name => {
+      const series = self.data[name];
+      delete self.data[name];
+      series.owner = undefined;
+    });
+    return self;
   }
 
   /**
@@ -541,26 +599,54 @@ export class DataFrame {
    * sortable.
    */
   public groupBy(
-    column_: string | Series<any>,
+    column_: string | string[] | Series<any>,
     inplaceSort: boolean = false,
   ): DataFramePartition<any> {
-    let column = this.resolveColumn(column_);
-    if (!inplaceSort) {
-      column = column.copy();
-    }
-    const self = this.sortBy(column, {inplace: inplaceSort});
-    const result = new DataFramePartition<any>(column.name);
+    if (Array.isArray(column_)) {
+      // Vectorize the values from multiple columns to a single series.
+      const emptyArraySeries = new Series(this.mapIndices(_ => []));
+      const groupKeySeries = column_.map(this.resolveColumn.bind(this)).reduce((s, n) => s.zip(n, (a, b) => [...a, b]), emptyArraySeries);
 
-    let startRowIdx = 0;
-    const rowCount = this.size();
-    for (let i = 1; i <= rowCount; ++i) {
-      if (i == rowCount || column.get(startRowIdx) !== column.get(i)) {
-        result.add(column.get(startRowIdx), self.slice(startRowIdx, i));
-        startRowIdx = i;
+      // Make sure the series is sortable for the aggregation.
+      // TODO (@nrosenstein): Make this more resilient 👀
+      const groupKeySortable = groupKeySeries.map(k => k.join(';'));
+
+      // A mapping to resolve the sortable group key back to it's original vectorized group key.
+      const groupKeyMapping = new Map(groupKeySortable.zip(groupKeySeries, (a, b) => [a, b]));
+
+      // Post aggregation function to decompose the previously assembled group key series.
+      const decomposeGroupKey = (df: DataFrame): DataFrame => {
+        // Make sure to insert columns at the front in same order.
+        const groupKeyCol = df.column('_groupKey');
+        column_.forEach((_, groupKeyIdx) => {
+          groupKeyIdx = column_.length - groupKeyIdx - 1;
+          df.setColumn(column_[groupKeyIdx], new Series(df.mapIndices(
+            rowIdx => groupKeyMapping.get(groupKeyCol.get(rowIdx))![groupKeyIdx])), true);
+        });
+        return df.drop('_groupKey', true);
+      };
+
+      return this.groupBy(groupKeySortable.named('_groupKey'), inplaceSort).withPostAggregationStep(decomposeGroupKey);
+    }
+    else {
+      let column = this.resolveColumn(column_);
+      if (!inplaceSort) {
+        column = column.copy();
       }
-    }
+      const self = this.sortBy(column, {inplace: inplaceSort});
+      const result = new DataFramePartition<any>(column.name);
 
-    return result;
+      let startRowIdx = 0;
+      const rowCount = this.size();
+      for (let i = 1; i <= rowCount; ++i) {
+        if (i == rowCount || column.get(startRowIdx) !== column.get(i)) {
+          result.addPartition(column.get(startRowIdx), self.slice(startRowIdx, i));
+          startRowIdx = i;
+        }
+      }
+
+      return result;
+    }
   }
 
   /**
@@ -582,6 +668,16 @@ export class DataFrame {
   }
 
   /**
+   * Map dataframe row indices.
+   */
+  public mapIndices<R>(func: MapFunction<R, number>): R[] {
+    if (this.empty()) {
+      return [];
+    }
+    return Object.values(this.data)[0].data.map((_, i) => func(i, i));
+  }
+
+  /**
    * Flatmap dataframe rows.
    */
   public flatMap<R>(func: MapFunction<R, Row>): R[] {
@@ -597,7 +693,7 @@ export class DataFrame {
   public filter(func: MapFunction<boolean, Row>, inplace: boolean = false): DataFrame {
     const self = inplace ? this : this.copy();
     let offset = 0;
-    self.forEach(rowIdx => {
+    self.forEachIndex(rowIdx => {
       if (func(self.row(rowIdx - offset), rowIdx)) {
         self.removeRow(rowIdx - offset);
         offset++;
@@ -609,8 +705,8 @@ export class DataFrame {
   /**
    * Execute a function for each row index.
    */
-  public forEach(func: ((i: number, df: DataFrame) => any)): DataFrame {
-    if (this.data !== {}) {
+  public forEachIndex(func: ((i: number, df: DataFrame) => any)): DataFrame {
+    if (!this.empty()) {
       Object.values(this.data)[0].forEach((_, i) => func(i, this));
     }
     return this;
@@ -625,7 +721,7 @@ export class DataFrame {
     }
 
     // Convert all series to strings, replacing `undefined` with "?".
-    const series = Object.values(this.data).map(s => s.map(x => '' + (x === undefined ? '?' : x)));
+    const series = Object.values(this.data).map(s => s.map(x => '' + (x === undefined ? '?' : x)).named(s.name));
 
     // Get the widths of each column.
     const widths = series.map(s => Math.max(
@@ -658,11 +754,19 @@ export class DataFrame {
  */
 export class DataFramePartition<T> {
   public partitions: {key: T, df: DataFrame}[];
+  private postAggregationStep?: (df: DataFrame) => DataFrame;
 
   public constructor(private name?: string) { this.partitions = []; }
 
-  public add(key: T, partition: DataFrame): void {
+  /** @internal */
+  public addPartition(key: T, partition: DataFrame): void {
     this.partitions.push({key: key, df: partition});
+  }
+
+  /** @internal */
+  public withPostAggregationStep(f: (df: DataFrame) => DataFrame): DataFramePartition<T> {
+    this.postAggregationStep = f;
+    return this;
   }
 
   public agg(processGroup: ((df: DataFrame) => DataFrame | SeriesOrValueMap)): DataFrame {
@@ -684,7 +788,11 @@ export class DataFramePartition<T> {
       entries.splice(0, 0, [this.name || '_key', new Series<any>(repeat(currentValue, coalesce(count, 1)))]);
       return new DataFrame(Object.fromEntries(entries));
     };
-    return this.partitions.map(item => toDF(item.key, processGroup(item.df))).reduce((agg, df) => agg.union(df));
+    let resultDf = this.partitions.map(item => toDF(item.key, processGroup(item.df))).reduce((agg, df) => agg.union(df));
+    if (this.postAggregationStep) {
+      resultDf = this.postAggregationStep(resultDf);
+    }
+    return resultDf;
   }
 
 }

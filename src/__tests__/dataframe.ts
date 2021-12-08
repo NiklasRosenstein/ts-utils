@@ -98,3 +98,37 @@ test("readme example", () => {
   }))
   expect(agg.column("sum").toArray()).toStrictEqual([7, 8]);
 })
+
+test("DataFrame.groupBy() on multiple columns", () => {
+  let df = new DataFrame([
+    { time: 0, group: 'a', value: 10 },
+    { time: 0, group: 'b', value: 20 },
+    { time: 0, group: 'b', value: 20 },
+    { time: 1, group: 'a', value: 15 },
+    { time: 1, group: 'b', value: 20 },
+    { time: 1, group: 'c', value: -10 },
+  ]);
+
+  const aggDfSum = df.groupBy(['time', 'group']).agg(df => ({ value: df.column('value').sum() }));
+  expect(aggDfSum.toString()).toBe(
+    "time group value\n" +
+    "---- ----- -----\n" +
+    "0    a     10\n" +
+    "0    b     40\n" +
+    "1    a     15\n" +
+    "1    b     20\n" +
+    "1    c     -10\n"
+  );
+
+  const aggDfCumsum = df.groupBy(['time', 'group']).agg(df => ({ value: df.column('value').cumulativeSum() }));
+  expect(aggDfCumsum.toString()).toBe(
+    "time group value\n" +
+    "---- ----- -----\n" +
+    "0    a     10\n" +
+    "0    b     20\n" +
+    "0    b     40\n" +
+    "1    a     15\n" +
+    "1    b     20\n" +
+    "1    c     -10\n"
+  );
+});
