@@ -79,7 +79,7 @@ test("create dataframe", () => {
     "42 0   eggs\n"
   );
 
-  const filteredDf = df.filter(row => row['d'] == undefined);
+  const filteredDf = df.filter(row => row['d'] !== undefined);
   expect(filteredDf.toString()).toBe(
     "a b c    d\n" +
     "- - ---- --\n" +
@@ -130,5 +130,18 @@ test("DataFrame.groupBy() on multiple columns", () => {
     "1    a     15\n" +
     "1    b     20\n" +
     "1    c     -10\n"
+  );
+});
+
+test("DataFrame.groupBy() on empty dataframe", () => {
+  const df1 = new DataFrame([], ['a', 'b', 'c', 'd']);
+  expect(df1.size()).toBe(0);
+  expect(df1.columnNames()).toStrictEqual(['a', 'b', 'c', 'd']);
+  const df1Agg = df1.groupBy(['a', 'b']).agg(df => ({ c: df.column('c').sum() }));
+  expect(df1Agg.size()).toBe(0);
+  expect(df1Agg.columnNames()).toStrictEqual(['a', 'b', 'c']);
+  expect(df1Agg.toString()).toBe(
+    "a b c\n" +
+    "- - -\n"
   );
 });

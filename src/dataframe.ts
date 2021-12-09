@@ -417,6 +417,9 @@ export class DataFrame {
     if (columnNames === undefined) {
       columnNames = series.map((_, i) => '_' + (i + 1));
     }
+    else if (series.length === 0 && columnNames.length > 1) {
+      series = columnNames.map(n => new Series<any>().named(n));
+    }
 
     this.data = {};
     series.map((s, i) => {
@@ -457,7 +460,7 @@ export class DataFrame {
    * Returns true if the dataframe is empty.
    */
   public empty(): boolean {
-    return Object.keys(this.data).length === 0;
+    return this.size() === 0;
   }
 
   /**
@@ -634,7 +637,7 @@ export class DataFrame {
         column = column.copy();
       }
       const self = this.sortBy(column, {inplace: inplaceSort});
-      const result = new DataFramePartition<any>(column.name);
+      const result = new DataFramePartition<any>(this.columnNames(), column.name);
 
       let startRowIdx = 0;
       const rowCount = this.size();
@@ -694,7 +697,7 @@ export class DataFrame {
     const self = inplace ? this : this.copy();
     let offset = 0;
     self.forEachIndex(rowIdx => {
-      if (func(self.row(rowIdx - offset), rowIdx)) {
+      if (!func(self.row(rowIdx - offset), rowIdx)) {
         self.removeRow(rowIdx - offset);
         offset++;
       }
@@ -716,7 +719,7 @@ export class DataFrame {
    * Return a string formatting the dataframe as a table.
    */
   public toString(): string {
-    if (this.empty()) {
+    if (this.empty() && this.columnNames().length === 0) {
       return "(Empty dataframe)";
     }
 
@@ -726,7 +729,7 @@ export class DataFrame {
     // Get the widths of each column.
     const widths = series.map(s => Math.max(
       s.name!.length,
-      s.max((a, b) => a.length - b.length).length
+      s.max((a, b) => a.length - b.length)?.length || 0
     ));
 
     // Construct the output string.
@@ -753,10 +756,10 @@ export class DataFrame {
  * Represents a partition of dataframes.
  */
 export class DataFramePartition<T> {
-  public partitions: {key: T, df: DataFrame}[];
+  public partitions: {key: T, df: DataFrame}[] = [];
   private postAggregationStep?: (df: DataFrame) => DataFrame;
 
-  public constructor(private name?: string) { this.partitions = []; }
+  public constructor(private originalColumnNames: string[], private name?: string) { }
 
   /** @internal */
   public addPartition(key: T, partition: DataFrame): void {
@@ -788,7 +791,13 @@ export class DataFramePartition<T> {
       entries.splice(0, 0, [this.name || '_key', new Series<any>(repeat(currentValue, coalesce(count, 1)))]);
       return new DataFrame(Object.fromEntries(entries));
     };
-    let resultDf = this.partitions.map(item => toDF(item.key, processGroup(item.df))).reduce((agg, df) => agg.union(df));
+    const proxyValue = '------$@$@MySuperSecreyProxyValueThisIsADirtyHack';
+    if (this.partitions.length === 0) {
+      this.addPartition(proxyValue as unknown as T, new DataFrame([], this.originalColumnNames));
+    }
+    let resultDf = this.partitions.map(item => toDF(item.key, processGroup(item.df)))
+      .reduce((agg, df) => agg.union(df))
+      .filter(r => r[this.name || '_key'] !== proxyValue);
     if (this.postAggregationStep) {
       resultDf = this.postAggregationStep(resultDf);
     }
